@@ -103,14 +103,14 @@ FROM
 		FROM WORDS) AS ROW
 WHERE WORD = 'shaker';
 
--- Find the count of all the palidromes (Excluding single and double letter words)
+-- Find the count of all the palindromes (Excluding single and double letter words)
 
 SELECT COUNT(*)
 FROM WORDS
 WHERE WORD = REVERSE(WORD)
 	AND LENGTH(WORD) >= 3;
 
--- Give me the first 10 of all the palidromes (Excluding single and double letter words)
+-- Give me the first 10 of all the palindromes (Excluding single and double letter words)
 
 SELECT WORD
 FROM WORDS
@@ -119,7 +119,7 @@ WHERE WORD = REVERSE(WORD)
 ORDER BY WORD 
 LIMIT 10;
 
--- Give me the 15th palidrome (Excluding single and double letter words) 
+-- Give me the 15th palindrome (Excluding single and double letter words) 
 -- of words that start with the letter 's'
 
 SELECT WORD

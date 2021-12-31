@@ -93,6 +93,15 @@ FROM words;
 SELECT PERCENTILE_CONT(0.25) WITHIN GROUP(ORDER BY length(word)) 
 FROM words;
 
+-- What is the word count for every letter in the words table?
+-- Sort by letter.
+
+SELECT SUBSTRING(LOWER(WORD),1,1) AS LETTER,
+	COUNT(*)
+FROM WORDS
+GROUP BY LETTER
+ORDER BY LETTER;
+
 -- What row number is the word 'shaker' in?  
 
 SELECT ROW_NUM AS "Row Number",

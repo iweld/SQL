@@ -1,0 +1,78 @@
+-- Create the three tables we are going to import of csv data into.
+
+CREATE TABLE CRIMES (
+	CRIME_ID serial, 
+	CRIME_DATE TIMESTAMP,
+	STREET_NAME VARCHAR(100),
+	CRIME_TYPE VARCHAR(150),
+	CRIME_DESCRIPTION VARCHAR(250),
+	LOCATION_DESCRIPTION VARCHAR(150),
+	ARREST boolean, 
+	DOMESTIC boolean, 
+	COMMUNITY_ID int, 
+	LATITUDE numeric, 
+	LONGITUDE numeric, 
+	PRIMARY KEY (CRIME_ID));
+
+
+CREATE TABLE COMMUNITY (
+	AREA_ID int, 
+	COMMUNITY_NAME VARCHAR(250),
+	POPULATION int, 
+	AREA_SIZE numeric, 
+	DENSITY numeric, 
+	PRIMARY KEY (AREA_ID));
+
+
+CREATE TABLE WEATHER (
+	WEATHER_DATE TIMESTAMP,
+	WEEKDAY VARCHAR(20),
+	TEMP_HIGH int, 
+	TEMP_LOW int, 
+	PRECIPITATION numeric, 
+	PRIMARY KEY (WEATHER_DATE));
+	
+-- Copy and insert data from csv files to tables.
+
+COPY CRIMES (
+	CRIME_DATE,
+	STREET_NAME,
+	CRIME_TYPE,
+	CRIME_DESCRIPTION,
+	LOCATION_DESCRIPTION,
+	ARREST,
+	DOMESTIC,
+	COMMUNITY_ID,
+	LATITUDE,
+	LONGITUDE)
+FROM 'C:\Users\Jaime\Desktop\dev\sql\portfolio\chicago_crimes_2021\csv\chicago_crimes_2021.csv'
+DELIMITER ',' CSV HEADER;
+
+COPY COMMUNITY (
+	AREA_ID, 
+	COMMUNITY_NAME,
+	POPULATION, 
+	AREA_SIZE, 
+	DENSITY)
+FROM 'C:\Users\Jaime\Desktop\dev\sql\portfolio\chicago_crimes_2021\csv\chicago_areas.csv'
+DELIMITER ',' CSV HEADER;
+
+COPY WEATHER (
+	WEATHER_DATE,
+	WEEKDAY,
+	TEMP_HIGH, 
+	TEMP_LOW, 
+	PRECIPITATION)
+FROM 'C:\Users\Jaime\Desktop\dev\sql\portfolio\chicago_crimes_2021\csv\chicago_temps_2021.csv'
+DELIMITER ',' CSV HEADER;
+
+-- Test to make sure things are working properly.
+
+SELECT CRIME_TYPE,
+	LOCATION_DESCRIPTION,
+	COMMUNITY_NAME
+FROM CRIMES
+INNER JOIN COMMUNITY 
+ON CRIMES.COMMUNITY_ID = COMMUNITY.AREA_ID
+WHERE CRIME_TYPE = 'homicide' and crime_date > '2021-06-1' and crime_date < '2021-07-01'
+LIMIT 10;

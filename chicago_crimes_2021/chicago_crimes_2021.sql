@@ -66,13 +66,60 @@ COPY WEATHER (
 FROM '* path to * \csv\chicago_temps_2021.csv'
 DELIMITER ',' CSV HEADER;
 
--- Test to make sure things are working properly.
+-- How many total crimes were reported in 2021?
 
-SELECT CRIME_TYPE,
-	LOCATION_DESCRIPTION,
-	COMMUNITY_NAME
-FROM CRIMES
-INNER JOIN COMMUNITY 
-ON CRIMES.COMMUNITY_ID = COMMUNITY.AREA_ID
-WHERE CRIME_TYPE = 'homicide' and crime_date > '2021-06-1' and crime_date < '2021-07-01'
-LIMIT 10;
+select count(crime_id) as "Total Crimes"
+from crimes;
+
+-- What is the count of Homicides, Battery and Assualts reported?
+
+select crime_type, count(*)
+from crimes
+where crime_type in ('homicide', 'battery', 'assault')
+group by crime_type
+order by count(*) desc;
+
+-- What are the top ten communities that had the most crimes reported?
+-- We will also add the current population to see if area density is also a factor.
+
+select co.community_name as Community, co.population, co.density, count(*) as "Reported Crimes"
+from community as co
+inner join crimes as cr
+on cr.community_id = co.area_id
+group by co.community_name, co.population, co.density
+order by count(*) desc limit 10;
+
+-- What are the top ten communities that had the least amount of crimes reported?
+-- We will also add the current population to see if area density is also a factor.
+
+select community_name as Community, co.population, co.density, count(*) as "Reported Crimes"
+from community as co
+inner join crimes as cr
+on cr.community_id = co.area_id
+group by community_name, co.population, co.density
+order by count(*) limit 10;
+
+-- What month had the most crimes reported?
+
+select extract(MONTH from crime_date), count(*)
+from crimes
+group by extract(MONTH from crime_date)
+order by count(*) desc;
+
+-- What month had the most homicides?
+
+select extract(MONTH from crime_date), count(*)
+from crimes
+where crime_type = 'homicide'
+group by extract(MONTH from crime_date)
+order by count(*) desc;
+
+-- What weekday were most crimes committed?
+
+select weekday, count(*)
+from weather
+inner join crimes
+on date(crimes.crime_date) = date(weather.weather_date)
+group by weekday
+order by count(*) desc;
+

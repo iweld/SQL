@@ -68,58 +68,86 @@ DELIMITER ',' CSV HEADER;
 
 -- How many total crimes were reported in 2021?
 
-select count(crime_id) as "Total Crimes"
-from crimes;
+SELECT COUNT(CRIME_ID) AS "Total Crimes"
+FROM CRIMES;
 
--- What is the count of Homicides, Battery and Assualts reported?
+-- What is the count of Homicides, Battery and Assaults reported?
 
-select crime_type, count(*)
-from crimes
-where crime_type in ('homicide', 'battery', 'assault')
-group by crime_type
-order by count(*) desc;
+SELECT CRIME_TYPE,
+	COUNT(*)
+FROM CRIMES
+WHERE CRIME_TYPE in ('homicide', 'battery','assault')
+GROUP BY CRIME_TYPE
+ORDER BY COUNT(*) DESC;
 
 -- What are the top ten communities that had the most crimes reported?
 -- We will also add the current population to see if area density is also a factor.
 
-select co.community_name as Community, co.population, co.density, count(*) as "Reported Crimes"
-from community as co
-inner join crimes as cr
-on cr.community_id = co.area_id
-group by co.community_name, co.population, co.density
-order by count(*) desc limit 10;
+SELECT CO.COMMUNITY_NAME AS COMMUNITY,
+	CO.POPULATION,
+	CO.DENSITY,
+	COUNT(*) AS "Reported Crimes"
+FROM COMMUNITY AS CO
+INNER JOIN CRIMES AS CR ON CR.COMMUNITY_ID = CO.AREA_ID
+GROUP BY CO.COMMUNITY_NAME,
+	CO.POPULATION,
+	CO.DENSITY
+ORDER BY COUNT(*) DESC
+LIMIT 10;
 
 -- What are the top ten communities that had the least amount of crimes reported?
 -- We will also add the current population to see if area density is also a factor.
 
-select community_name as Community, co.population, co.density, count(*) as "Reported Crimes"
-from community as co
-inner join crimes as cr
-on cr.community_id = co.area_id
-group by community_name, co.population, co.density
-order by count(*) limit 10;
+SELECT COMMUNITY_NAME AS COMMUNITY,
+	CO.POPULATION,
+	CO.DENSITY,
+	COUNT(*) AS "Reported Crimes"
+FROM COMMUNITY AS CO
+INNER JOIN CRIMES AS CR ON CR.COMMUNITY_ID = CO.AREA_ID
+GROUP BY COMMUNITY_NAME,
+	CO.POPULATION,
+	CO.DENSITY
+ORDER BY COUNT(*)
+LIMIT 10;
 
 -- What month had the most crimes reported?
 
-select extract(MONTH from crime_date), count(*)
-from crimes
-group by extract(MONTH from crime_date)
-order by count(*) desc;
+SELECT EXTRACT(MONTH FROM CRIME_DATE), COUNT(*)
+FROM CRIMES
+GROUP BY EXTRACT(MONTH FROM CRIME_DATE)
+ORDER BY COUNT(*) DESC;
 
 -- What month had the most homicides?
 
-select extract(MONTH from crime_date), count(*)
-from crimes
-where crime_type = 'homicide'
-group by extract(MONTH from crime_date)
-order by count(*) desc;
+SELECT EXTRACT(MONTH FROM CRIME_DATE), COUNT(*)
+FROM CRIMES
+WHERE CRIME_TYPE = 'homicide'
+GROUP BY EXTRACT(MONTH FROM CRIME_DATE)
+ORDER BY COUNT(*) DESC;
 
 -- What weekday were most crimes committed?
 
-select weekday, count(*)
-from weather
-inner join crimes
-on date(crimes.crime_date) = date(weather.weather_date)
-group by weekday
-order by count(*) desc;
+SELECT WEEKDAY, COUNT(*)
+FROM WEATHER
+INNER JOIN CRIMES ON DATE(CRIMES.CRIME_DATE) = DATE(WEATHER.WEATHER_DATE)
+GROUP BY WEEKDAY
+ORDER BY COUNT(*) DESC;
+
+-- What are the top ten city streets that have had the most reported crimes?
+
+SELECT STREET_NAME, COUNT(*)
+FROM CRIMES
+GROUP BY STREET_NAME
+ORDER BY COUNT(*) DESC
+LIMIT 10
+
+-- What are the top ten city streets that have had the most homicides?
+
+SELECT STREET_NAME, COUNT(*)
+FROM CRIMES
+where crime_type = 'homicide'
+GROUP BY STREET_NAME
+ORDER BY COUNT(*) DESC
+LIMIT 10
+
 

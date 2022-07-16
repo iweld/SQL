@@ -124,17 +124,17 @@ FROM CTE_TOTAL_MEMBER_POINTS
 WITH CTE_JAN_MEMBER_POINTS AS
 	(SELECT M.CUSTOMER_ID AS CUSTOMER,
 			SUM(CASE
-					when s.order_date < m.join_date then
-						case
+					WHEN s.order_date < m.join_date THEN
+						CASE
 							WHEN M2.PRODUCT_NAME = 'sushi' THEN (M2.PRICE * 20)
 							ELSE (M2.PRICE * 10)
-						end
+						END
 					WHEN S.ORDER_DATE > (m.join_date + 6) THEN 
-						case
+						CASE
 							WHEN M2.PRODUCT_NAME = 'sushi' THEN (M2.PRICE * 20)
 							ELSE (M2.PRICE * 10)
-						end 
-					else (M2.PRICE * 20)	
+						END 
+					ELSE (M2.PRICE * 20)	
 				END) AS MEMBER_POINTS
 		FROM MEMBERS AS M
 		JOIN SALES AS S ON S.CUSTOMER_ID = M.CUSTOMER_ID
@@ -143,35 +143,5 @@ WITH CTE_JAN_MEMBER_POINTS AS
 		GROUP BY CUSTOMER)
 SELECT *
 FROM CTE_JAN_MEMBER_POINTS
-order by customer
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ORDER BY customer;
 

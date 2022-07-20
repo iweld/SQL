@@ -12,6 +12,14 @@ JOIN MENU AS M ON S.PRODUCT_ID = M.PRODUCT_ID
 GROUP BY C_ID
 ORDER BY TOTAL_SPENT DESC;
 
+-- Results
+
+c_id|total_spent|
+----+-----------+
+A   |         76|
+B   |         74|
+C   |         36|
+
 -- 2. How many days has each customer visited the restaurant?
 
 SELECT 
@@ -20,6 +28,14 @@ SELECT
 FROM SALES
 GROUP BY CUSTOMER_ID
 ORDER BY N_DAYS DESC;
+
+-- Results
+
+c_id|n_days|
+----+------+
+B   |     6|
+A   |     4|
+C   |     2|
 
 -- 3. What was the first item from the menu purchased by each customer?
 
@@ -34,6 +50,14 @@ SELECT C_ID,
 FROM CTE_FIRST_ORDER
 WHERE RN = 1
 
+-- Results
+
+c_id|product_name|
+----+------------+
+A   |sushi       |
+B   |curry       |
+C   |ramen       |
+
 -- 4. What is the most purchased item on the menu and how many times was it purchased by all customers?
 
 SELECT M.PRODUCT_NAME,
@@ -43,6 +67,12 @@ JOIN SALES AS S ON M.PRODUCT_ID = S.PRODUCT_ID
 GROUP BY M.PRODUCT_NAME
 ORDER BY N_PURCHASED DESC
 LIMIT 1
+
+-- Results
+
+product_name|n_purchased|
+------------+-----------+
+ramen       |          8|
 
 -- 5. Which item was the most popular for each customer?
 WITH CTE_MOST_POPULAR AS
@@ -57,6 +87,16 @@ SELECT
 	*
 FROM CTE_MOST_POPULAR
 WHERE RNK = 1;
+
+-- Results
+
+c_id|p_name|rnk|
+----+------+---+
+A   |ramen |  1|
+B   |sushi |  1|
+B   |curry |  1|
+B   |ramen |  1|
+C   |ramen |  1|
 
 -- 6. Which item was purchased first by the customer after they became a member?
 
@@ -73,6 +113,13 @@ SELECT CUSTOMER,
 FROM CTE_FIRST_MEMBER_PURCHASE
 WHERE RNK = 1;
 
+-- Results
+
+customer|product|
+--------+-------+
+A       |curry  |
+B       |sushi  |
+
 -- 7. Which item was purchased just before the customer became a member?
 
 WITH CTE_LAST_NONMEMBER_PURCHASE AS
@@ -88,6 +135,14 @@ SELECT CUSTOMER,
 FROM CTE_LAST_NONMEMBER_PURCHASE
 WHERE RNK = 1;
 
+-- Results
+
+customer|product|
+--------+-------+
+A       |sushi  |
+A       |curry  |
+B       |sushi  |
+
 -- 8. What is the total items and amount spent for each member before they became a member?
 	
 WITH CTE_TOTAL_NONMEMBER_PURCHASE AS
@@ -102,6 +157,13 @@ WITH CTE_TOTAL_NONMEMBER_PURCHASE AS
 SELECT *
 FROM CTE_TOTAL_NONMEMBER_PURCHASE
 ORDER BY CUSTOMER;
+
+-- Results
+
+customer|total_items|total_spent|
+--------+-----------+-----------+
+A       |          2|         25|
+B       |          3|         40|
 	
 -- 9.  If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
 
@@ -117,6 +179,13 @@ WITH CTE_TOTAL_MEMBER_POINTS AS
 		GROUP BY CUSTOMER)
 SELECT *
 FROM CTE_TOTAL_MEMBER_POINTS
+
+-- Results
+
+customer|member_points|
+--------+-------------+
+A       |          860|
+B       |          940|
 	
 -- 10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi 
 -- - how many points do customer A and B have at the end of January?	
@@ -144,4 +213,11 @@ WITH CTE_JAN_MEMBER_POINTS AS
 SELECT *
 FROM CTE_JAN_MEMBER_POINTS
 ORDER BY customer;
+
+-- Results
+
+customer|member_points|
+--------+-------------+
+A       |         1370|
+B       |          820|
 

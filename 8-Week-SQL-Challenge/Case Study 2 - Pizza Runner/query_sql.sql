@@ -1,6 +1,7 @@
 /* 
  * Pizza Runner
  * Case Study #2 Questions
+ * Pizza Metrics
  *  
 */
 
@@ -10,7 +11,7 @@ Clean Data
 
 The customer_order table has inconsistent data types.  We must first clean the data before answering any questions. 
 The exclusions and extras columns contain values that are either 'null' (text), null (data type) or '' (empty).
-We will create a temporary table where all forms of null will be transformed to '' (empty).
+We will create a temporary table where all forms of null will be transformed to null (data type).
 
 */
 
@@ -36,20 +37,21 @@ order_id|customer_id|pizza_id|exclusions|extras|order_time             |
        9|        103|       1|4         |1, 5  |2020-01-10 11:22:59.000|
       10|        104|       1|null      |null  |2020-01-11 18:34:49.000|
       10|        104|       1|2, 6      |1, 4  |2020-01-11 18:34:49.000|
-      
+
+DROP TABLE IF EXISTS new_customer_orders;
 CREATE TEMP TABLE new_customer_orders AS (
 	SELECT
 		order_id,
 		customer_id,
 		pizza_id,
 	CASE
-		WHEN exclusions IS NULL
-			OR exclusions LIKE 'null' THEN ''
+		WHEN exclusions = ''
+			OR exclusions LIKE 'null' THEN null
 		ELSE exclusions
 	END AS exclusions,
 	CASE
-		WHEN extras IS NULL
-			OR extras LIKE 'null' THEN ''
+		WHEN extras = ''
+			OR extras LIKE 'null' THEN null
 		ELSE extras
 	END AS extras,
 		order_time
@@ -260,14 +262,350 @@ customer_id|meat_lovers|vegetarian|
         
 -- 6. What was the maximum number of pizzas delivered in a single order?       
         
+WITH cte_order_count AS (
+	SELECT	
+		c.order_id,
+		count(c.pizza_id) AS n_orders
+	FROM new_customer_orders AS c
+	JOIN new_runner_orders AS r
+	ON c.order_id = r.order_id
+	WHERE
+		r.cancellation IS NULL
+	GROUP BY c.order_id
+)
+
+SELECT
+	max(n_orders) AS max_n_orders
+FROM cte_order_count;
+
+-- Result:
+
+max_n_orders|
+------------+
+           3|
+           
+-- 7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
+
+SELECT
+	c.customer_id,
+	sum(
+		CASE
+			WHEN c.exclusions IS NOT NULL 
+				OR c.extras IS NOT NULL THEN 1
+			ELSE 0
+		END
+	) AS has_changes,
+	sum(
+		CASE
+			WHEN c.exclusions IS NULL 
+				OR c.extras IS NULL THEN 1
+			ELSE 0
+		END
+	) AS no_changes
+FROM
+	new_customer_orders AS c
+JOIN new_runner_orders AS r
+ON c.order_id = r.order_id
+WHERE
+	r.cancellation IS NULL
+GROUP BY
+	c.customer_id
+ORDER BY
+	c.customer_id;
         
+-- Result:
+
+customer_id|has_changes|no_changes|
+-----------+-----------+----------+
+        101|          0|         2|
+        102|          0|         3|
+        103|          3|         3|
+        104|          2|         2|
+        105|          1|         1|
         
+-- 8. How many pizzas were delivered that had both exclusions and extras?
         
+SELECT
+	sum(
+		CASE
+			WHEN c.exclusions IS NOT NULL 
+				and c.extras IS NOT NULL THEN 1
+			ELSE 0
+		END
+	) AS n_pizzas
+FROM new_customer_orders AS c
+JOIN new_runner_orders AS r
+ON c.order_id = r.order_id
+WHERE r.cancellation IS NULL;
+
+-- Result:
         
+n_pizzas|
+--------+
+       1|      
         
+-- 9. What was the total volume of pizzas ordered for each hour of the day?
+
+SELECT
+	extract(hour FROM order_time::timestamp) AS hour_of_day,
+	count(*) AS n_pizzas
+FROM new_customer_orders
+WHERE order_time IS NOT NULL
+GROUP BY hour_of_day
+ORDER BY hour_of_day;
+
+-- Result:
+       
+hour_of_day|n_pizzas|
+-----------+--------+
+       11.0|       1|
+       13.0|       3|
+       18.0|       3|
+       19.0|       1|
+       21.0|       3|
+       23.0|       3|  
+       
+-- 10. What was the volume of orders for each day of the week?
+
+SELECT
+	to_char(order_time, 'Day') AS day_of_week,
+	count(*) AS n_pizzas
+FROM new_customer_orders
+GROUP BY day_of_week
+ORDER BY day_of_week;
+
+-- Result:
+
+day_of_week|n_pizzas|
+-----------+--------+
+Friday     |       1|
+Saturday   |       5|
+Thursday   |       3|
+Wednesday  |       5| 
+
+/* 
+ * Pizza Runner
+ * Case Study #2 Questions
+ * Runner and Customer Experience
+ *  
+*/
+       
+-- 1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01) 
+ 
+SELECT
+	starting_week,
+	count(runner_id) AS n_runners
+from
+	(SELECT
+		runner_id,
+		registration_date,
+		registration_date - ((registration_date - '2021-01-01') % 7) AS starting_week
+	FROM runners) AS signups
+GROUP BY starting_week
+ORDER BY starting_week;
+
+-- Result:
+
+starting_week|n_runners|
+-------------+---------+
+   2021-01-01|        2|
+   2021-01-08|        1|
+   2021-01-15|        1|
+
+-- 2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
+
+SELECT
+	runner_id,
+	extract('minutes' FROM avg(runner_arrival_time)) AS avg_arrival_time
+from
+	(SELECT
+		r.runner_id,
+		r.order_id,
+		r.pickup_time,
+		c.order_time,
+		(r.pickup_time - c.order_time) AS runner_arrival_time
+	FROM new_runner_orders AS r
+	JOIN new_customer_orders AS c
+	ON r.order_id = c.order_id) AS runner_time
+GROUP BY runner_id
+ORDER BY runner_id;
+	
+-- Result:  
+   
+runner_id|avg_arrival_time|
+---------+----------------+
+        1|            15.0|
+        2|            23.0|
+        3|            10.0|   
+   
+-- 3. Is there any relationship between the number of pizzas and how long the order takes to prepare?
         
-        
-        
-        
-        
+WITH number_of_pizzas AS (
+	SELECT	
+		order_id,
+		order_time,
+		count(pizza_id) AS n_pizzas
+	FROM new_customer_orders
+	GROUP BY 
+		order_id,
+		order_time	
+),
+preperation_time AS (
+	SELECT
+		r.runner_id,
+		r.pickup_time,
+		n.order_time,
+		n.n_pizzas,
+		(r.pickup_time - n.order_time) AS runner_arrival_time
+	FROM new_runner_orders AS r
+	JOIN number_of_pizzas AS n
+	ON r.order_id = n.order_id
+	WHERE r.pickup_time IS NOT null
+)
+
+SELECT
+	n_pizzas,
+	avg(runner_arrival_time) AS avg_order_time
+FROM preperation_time
+GROUP BY n_pizzas
+ORDER BY n_pizzas;
+
+-- Result:
+
+n_pizzas|avg_order_time|
+--------+--------------+
+       1|    00:12:21.4|
+       2|    00:18:22.5|
+       3|      00:29:17|
+       
+-- 4a. What was the average distance travelled for each customer?
+
+SELECT
+	c.customer_id,
+	floor(avg(r.distance)) AS avg_distance_rounded_down,
+	round(avg(r.distance), 2) AS avg_distance,
+	ceil(avg(r.distance)) AS avg_distance_rounded_up
+FROM new_runner_orders AS r
+JOIN new_customer_orders AS c
+ON c.order_id = r.order_id
+GROUP BY customer_id
+ORDER BY customer_id;
+
+-- Result:
+
+customer_id|avg_distance_rounded_down|avg_distance|avg_distance_rounded_up|
+-----------+-------------------------+------------+-----------------------+
+        101|                       20|       20.00|                     20|
+        102|                       16|       16.73|                     17|
+        103|                       23|       23.40|                     24|
+        104|                       10|       10.00|                     10|
+        105|                       25|       25.00|                     25|
+             
+-- 4b. What was the average distance travelled for each runner?
+
+SELECT
+	runner_id,
+	floor(avg(distance)) AS avg_distance_rounded_down,
+	round(avg(distance), 2) AS avg_distance,
+	ceil(avg(distance)) AS avg_distance_rounded_up
+FROM new_runner_orders
+GROUP BY runner_id
+ORDER BY runner_id;       
+
+-- Result:
+       
+runner_id|avg_distance_rounded_down|avg_distance|avg_distance_rounded_up|
+---------+-------------------------+------------+-----------------------+
+        1|                       15|       15.85|                     16|
+        2|                       23|       23.93|                     24|
+        3|                       10|       10.00|                     10|      
+       
+-- 5. What was the difference between the longest and shortest delivery times for all orders?
+
+SELECT
+	max(duration) - min(duration) AS time_diff
+FROM new_runner_orders;
+       
+-- Result:
+       
+time_diff|
+---------+
+       30|       
+       
+-- 6. -- What was the average speed for each runner for each delivery and do you notice any trend for these values?
+
+WITH customer_order_count AS (
+	SELECT
+		customer_id,
+		order_id,
+		order_time,
+		count(pizza_id) AS n_pizzas
+	FROM new_customer_orders
+	GROUP BY 
+		customer_id,
+		order_id,
+		order_time		
+)
+
+SELECT
+	c.customer_id,
+	r.order_id,
+	r.runner_id,
+	c.n_pizzas,
+	r.distance,
+	r.duration,
+	round(60 * r.distance / r.duration, 2) AS runner_speed
+FROM new_runner_orders AS r
+JOIN customer_order_count AS c
+ON r.order_id = c.order_id
+WHERE r.pickup_time IS NOT NULL
+ORDER BY runner_speed
+
+/* 
+ * Noticable Trend
+ *  
+ */
+
+-- As long as weather and road conditions are not a factor, customer #102 appears to be a tremendous tipper and
+-- runner #2 will violate every law in an attempt to deliver the pizza quickly.
+-- Although the slowest runner carried three pizzas, other runner carryine only 1 pizza has similar slow
+-- speeds which may have been cause by bad weather conditions.     
+       
+       
+-- 7. -- What is the successful delivery percentage for each runner?
+
+SELECT
+	runner_id,
+	count(pickup_time) AS delivered_pizzas,
+	count(order_id) AS total_orders,
+	(round(100 * count(pickup_time) / count(order_id))) AS delivered_percentage
+FROM new_runner_orders
+GROUP BY runner_id
+ORDER BY runner_id
+
+-- Result:
+
+runner_id|delivered_pizzas|total_orders|delivered_percentage|
+---------+----------------+------------+--------------------+
+        1|               4|           4|               100.0|
+        2|               3|           4|                75.0|
+        3|               1|           2|                50.0|
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       
+       
       

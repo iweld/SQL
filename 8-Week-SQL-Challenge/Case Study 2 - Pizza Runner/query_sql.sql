@@ -713,37 +713,35 @@ get_extras AS (
 	GROUP BY order_id, extras
 )
 
-
 SELECT
-	DISTINCT order_id,
-	pizza_name,
-	string_agg(all_exclusions, ','),
-	string_agg(all_extras, ',')
+	order_id,
+	case
+		WHEN all_exclusions IS NOT NULL AND all_extras IS NULL THEN concat(pizza_name, ' - ', 'Exclude: ', all_exclusions)
+		WHEN all_exclusions IS NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Extra: ', all_extras)
+		WHEN all_exclusions IS NOT NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Exclude: ', ' - ', 'Extra:', all_extras)
+		ELSE pizza_name
+	END AS pizza_type
 from
 	(SELECT
-		c.order_id,
-		pn.pizza_name,
-		(SELECT topping_name FROM pizza_toppings WHERE topping_id = gexc.exclusions) AS all_exclusions,
-		(SELECT topping_name FROM pizza_toppings WHERE topping_id = gext.extras) AS all_extras
-		/*case
-			WHEN c.exclusions IS NOT NULL AND c.extras IS NULL THEN concat(pn.pizza_name, ' - ', 'Exclude: ', )
-			WHEN c.exclusions IS NULL AND c.extras IS NOT NULL THEN concat(pn.pizza_name, ' - ', 'Extra: ')
-			WHEN c.exclusions IS NOT NULL AND c.extras IS NOT NULL THEN concat(pn.pizza_name, ' - ', 'Exclude: ', ' - ', 'Extra:')
-			ELSE pn.pizza_name
-		END AS pizza_type*/
-	FROM pizza_names AS pn
-	JOIN new_customer_orders AS c
-	ON c.pizza_id = pn.pizza_id
-	LEFT JOIN get_exclusions AS gexc
-	ON gexc.order_id = c.order_id
-	LEFT JOIN get_extras AS gext
-	ON gext.order_id = c.order_id
-	GROUP BY c.order_id,
-		pn.pizza_name,
-		gexc.exclusions,
-		gext.extras
-	ORDER BY c.order_id) AS tmp
-GROUP BY order_id, pizza_name
+		order_id,
+		pizza_name,
+		all_exclusions,
+		all_extras
+	from
+		(SELECT
+			c.order_id,
+			pn.pizza_name,
+			string_agg((SELECT DISTINCT topping_name FROM pizza_toppings WHERE topping_id = gexc.exclusions), ',') AS all_exclusions,
+			string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = gext.extras), ',') AS all_extras
+		FROM pizza_names AS pn
+		JOIN new_customer_orders AS c
+		ON c.pizza_id = pn.pizza_id
+		LEFT JOIN get_exclusions AS gexc
+		ON gexc.order_id = c.order_id
+		LEFT JOIN get_extras AS gext
+		ON gext.order_id = c.order_id
+		GROUP BY c.order_id,
+			pn.pizza_name) AS tmp) AS tmp2
 	
 
 

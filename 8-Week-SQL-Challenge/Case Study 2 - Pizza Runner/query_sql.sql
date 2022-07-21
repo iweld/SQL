@@ -568,8 +568,8 @@ ORDER BY runner_speed
 
 -- As long as weather and road conditions are not a factor, customer #102 appears to be a tremendous tipper and
 -- runner #2 will violate every law in an attempt to deliver the pizza quickly.
--- Although the slowest runner carried three pizzas, other runner carryine only 1 pizza has similar slow
--- speeds which may have been cause by bad weather conditions.     
+-- Although the slowest runner carried three pizzas, other runners carrying only 1 pizza has similar slow
+-- speeds which may have been cause by bad weather conditions or some other factor.     
        
        
 -- 7. -- What is the successful delivery percentage for each runner?
@@ -591,16 +591,160 @@ runner_id|delivered_pizzas|total_orders|delivered_percentage|
         2|               3|           4|                75.0|
         3|               1|           2|                50.0|
 
+/* 
+ * Pizza Runner
+ * Case Study #2 Questions
+ * Ingredient Optimisation
+ *  
+*/
+
+-- We will create a temp table with the unnested array of pizza toppings
+        
+DROP TABLE IF EXISTS recipe_toppings;
+CREATE TEMP TABLE recipe_toppings AS (
+	SELECT
+		pn.pizza_id,
+		pn.pizza_name,
+		UNNEST(string_to_array(pr.toppings, ','))::numeric AS each_topping
+	FROM pizza_names AS pn
+	JOIN pizza_recipes AS pr
+	ON pn.pizza_id = pr.pizza_id
+);
+
+-- 1. What are the standard ingredients for each pizza?
+
+SELECT
+	rt.pizza_name,
+	pt.topping_name
+FROM recipe_toppings AS rt
+JOIN pizza_toppings AS pt
+ON rt.each_topping = pt.topping_id
+ORDER BY rt.pizza_name;
+
+-- Result
+
+pizza_name|topping_name|
+----------+------------+
+Meatlovers|BBQ Sauce   |
+Meatlovers|Pepperoni   |
+Meatlovers|Cheese      |
+Meatlovers|Salami      |
+Meatlovers|Chicken     |
+Meatlovers|Bacon       |
+Meatlovers|Mushrooms   |
+Meatlovers|Beef        |
+Vegetarian|Tomato Sauce|
+Vegetarian|Cheese      |
+Vegetarian|Mushrooms   |
+Vegetarian|Onions      |
+Vegetarian|Peppers     |
+Vegetarian|Tomatoes    |
+
+-- 2. What was the most commonly added extra?
+
+WITH most_common_extra AS (
+	SELECT
+		extras,
+		RANK() OVER (ORDER BY count(extras) desc) AS rnk_extras
+	from
+		(SELECT
+			trim(UNNEST(string_to_array(extras, ',')))::numeric AS extras
+		FROM new_customer_orders
+		GROUP BY extras) AS tmp
+	GROUP BY extras
+)
+
+SELECT
+	topping_name
+FROM pizza_toppings
+WHERE topping_id = (SELECT extras FROM most_common_extra WHERE rnk_extras = 1);
+
+-- Result
+
+topping_name|
+------------+
+Bacon       |
+
+-- 3. What was the most common exclusion?
+
+WITH most_common_exclusion AS (
+	SELECT
+		exclusions,
+		RANK() OVER (ORDER BY count(exclusions) desc) AS rnk_exclusions
+	from
+		(SELECT
+			trim(UNNEST(string_to_array(exclusions, ',')))::numeric AS exclusions
+		FROM new_customer_orders
+		GROUP BY exclusions) AS tmp
+	GROUP BY exclusions
+)
+
+SELECT
+	topping_name
+FROM pizza_toppings
+WHERE topping_id in (SELECT exclusions FROM most_common_exclusion WHERE rnk_exclusions = 1);
+
+-- Result
+
+topping_name|
+------------+
+BBQ Sauce   |
+Cheese      |
+Mushrooms   |
+
+-- 4. Generate an order item for each record in the customers_orders table in the format of one of the following:
+-- Meat Lovers
+-- Meat Lovers - Exclude Beef
+-- Meat Lovers - Extra Bacon
+-- Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
+
+WITH get_exclusions AS (
+	SELECT
+		order_id,
+		trim(UNNEST(string_to_array(exclusions, ',')))::numeric AS exclusions
+	FROM new_customer_orders
+	GROUP BY order_id, exclusions
+),
+get_extras AS (
+	SELECT
+		order_id,
+		trim(UNNEST(string_to_array(extras, ',')))::numeric AS extras
+	FROM new_customer_orders
+	GROUP BY order_id, extras
+)
 
 
-
-
-
-
-
-
-
-
+SELECT
+	DISTINCT order_id,
+	pizza_name,
+	string_agg(all_exclusions, ','),
+	string_agg(all_extras, ',')
+from
+	(SELECT
+		c.order_id,
+		pn.pizza_name,
+		(SELECT topping_name FROM pizza_toppings WHERE topping_id = gexc.exclusions) AS all_exclusions,
+		(SELECT topping_name FROM pizza_toppings WHERE topping_id = gext.extras) AS all_extras
+		/*case
+			WHEN c.exclusions IS NOT NULL AND c.extras IS NULL THEN concat(pn.pizza_name, ' - ', 'Exclude: ', )
+			WHEN c.exclusions IS NULL AND c.extras IS NOT NULL THEN concat(pn.pizza_name, ' - ', 'Extra: ')
+			WHEN c.exclusions IS NOT NULL AND c.extras IS NOT NULL THEN concat(pn.pizza_name, ' - ', 'Exclude: ', ' - ', 'Extra:')
+			ELSE pn.pizza_name
+		END AS pizza_type*/
+	FROM pizza_names AS pn
+	JOIN new_customer_orders AS c
+	ON c.pizza_id = pn.pizza_id
+	LEFT JOIN get_exclusions AS gexc
+	ON gexc.order_id = c.order_id
+	LEFT JOIN get_extras AS gext
+	ON gext.order_id = c.order_id
+	GROUP BY c.order_id,
+		pn.pizza_name,
+		gexc.exclusions,
+		gext.extras
+	ORDER BY c.order_id) AS tmp
+GROUP BY order_id, pizza_name
+	
 
 
 

@@ -726,16 +726,24 @@ from
 	SELECT
 		c.order_id,
 		pn.pizza_name,
-		(SELECT
-			string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.single_exclusions), ', ')
-		FROM
-			get_exclusions AS get_exc
-		WHERE order_id =c.order_id) AS all_exclusions,
-		(SELECT
-			string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
-		FROM
-			get_extras AS get_ext
-		WHERE order_id =c.order_id) AS all_extras
+		CASE
+			WHEN c.exclusions IS NULL AND c.extras IS NULL THEN NULL
+			ELSE 
+				(SELECT
+					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.single_exclusions), ', ')
+				FROM
+					get_exclusions AS get_exc
+				WHERE order_id =c.order_id)
+		END AS all_exclusions,
+		CASE
+			WHEN c.exclusions IS  NULL AND c.extras IS NULL THEN NULL
+			ELSE
+				(SELECT
+					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
+				FROM
+					get_extras AS get_ext
+				WHERE order_id =c.order_id)
+		END AS all_extras
 	FROM pizza_names AS pn
 	JOIN new_customer_orders AS c
 	ON c.pizza_id = pn.pizza_id
@@ -744,7 +752,9 @@ from
 	LEFT JOIN get_extras AS get_ext
 	ON get_ext.order_id = c.order_id AND c.extras IS NOT NULL
 	GROUP BY c.order_id,
-		pn.pizza_name
+		pn.pizza_name,
+		c.exclusions,
+		c.extras
 	ORDER BY c.order_id) AS tmp
 
 

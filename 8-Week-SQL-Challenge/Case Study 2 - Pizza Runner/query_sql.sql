@@ -701,14 +701,14 @@ Mushrooms   |
 WITH get_exclusions AS (
 	SELECT
 		order_id,
-		trim(UNNEST(string_to_array(exclusions, ',')))::numeric AS exclusions
+		trim(UNNEST(string_to_array(exclusions, ',')))::NUMERIC AS single_exclusions
 	FROM new_customer_orders
 	GROUP BY order_id, exclusions
 ),
 get_extras AS (
 	SELECT
 		order_id,
-		trim(UNNEST(string_to_array(extras, ',')))::numeric AS extras
+		trim(UNNEST(string_to_array(extras, ',')))::numeric AS single_extras
 	FROM new_customer_orders
 	GROUP BY order_id, extras
 )
@@ -718,33 +718,34 @@ SELECT
 	case
 		WHEN all_exclusions IS NOT NULL AND all_extras IS NULL THEN concat(pizza_name, ' - ', 'Exclude: ', all_exclusions)
 		WHEN all_exclusions IS NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Extra: ', all_extras)
-		WHEN all_exclusions IS NOT NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Exclude: ', ' - ', 'Extra:', all_extras)
+		WHEN all_exclusions IS NOT NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Exclude: ', all_exclusions, ' - ', 'Extra: ', all_extras)
 		ELSE pizza_name
 	END AS pizza_type
 from
-	(SELECT
-		order_id,
-		pizza_name,
-		all_exclusions,
-		all_extras
-	from
+	(
+	SELECT
+		c.order_id,
+		pn.pizza_name,
 		(SELECT
-			c.order_id,
-			pn.pizza_name,
-			string_agg((SELECT DISTINCT topping_name FROM pizza_toppings WHERE topping_id = gexc.exclusions), ',') AS all_exclusions,
-			string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = gext.extras), ',') AS all_extras
-		FROM pizza_names AS pn
-		JOIN new_customer_orders AS c
-		ON c.pizza_id = pn.pizza_id
-		LEFT JOIN get_exclusions AS gexc
-		ON gexc.order_id = c.order_id
-		LEFT JOIN get_extras AS gext
-		ON gext.order_id = c.order_id
-		GROUP BY c.order_id,
-			pn.pizza_name) AS tmp) AS tmp2
-	
-
-
+			string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.single_exclusions), ', ')
+		FROM
+			get_exclusions AS get_exc
+		WHERE order_id =c.order_id) AS all_exclusions,
+		(SELECT
+			string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
+		FROM
+			get_extras AS get_ext
+		WHERE order_id =c.order_id) AS all_extras
+	FROM pizza_names AS pn
+	JOIN new_customer_orders AS c
+	ON c.pizza_id = pn.pizza_id
+	LEFT JOIN get_exclusions AS get_exc
+	ON get_exc.order_id = c.order_id AND c.exclusions IS NOT NULL
+	LEFT JOIN get_extras AS get_ext
+	ON get_ext.order_id = c.order_id AND c.extras IS NOT NULL
+	GROUP BY c.order_id,
+		pn.pizza_name
+	ORDER BY c.order_id) AS tmp
 
 
 

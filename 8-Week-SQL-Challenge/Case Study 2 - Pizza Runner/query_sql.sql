@@ -698,23 +698,41 @@ Mushrooms   |
 -- Meat Lovers - Extra Bacon
 -- Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
 
-WITH get_exclusions AS (
+DROP TABLE IF EXISTS id_customer_orders;
+CREATE TEMP TABLE id_customer_orders AS (
 	SELECT
+		row_number() OVER (ORDER BY order_id) AS row_id,
+		order_id,
+		customer_id,
+		pizza_id,
+		exclusions,
+		extras,
+		order_time
+FROM
+	new_customer_orders
+);
+
+DROP TABLE IF EXISTS get_exclusions;
+CREATE TEMP TABLE get_exclusions AS (
+	SELECT
+		row_id,
 		order_id,
 		trim(UNNEST(string_to_array(exclusions, ',')))::NUMERIC AS single_exclusions
-	FROM new_customer_orders
-	GROUP BY order_id, exclusions
-),
-get_extras AS (
+	FROM id_customer_orders
+	GROUP BY row_id, order_id, exclusions
+);
+
+DROP TABLE IF EXISTS get_extras;
+CREATE TEMP TABLE get_extras AS (
 	SELECT
+		row_id,
 		order_id,
 		trim(UNNEST(string_to_array(extras, ',')))::numeric AS single_extras
-	FROM new_customer_orders
-	GROUP BY order_id, extras
-)
+	FROM id_customer_orders
+	GROUP BY row_id, order_id, extras
+);
 
 SELECT
-	order_id,
 	case
 		WHEN all_exclusions IS NOT NULL AND all_extras IS NULL THEN concat(pizza_name, ' - ', 'Exclude: ', all_exclusions)
 		WHEN all_exclusions IS NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Extra: ', all_extras)
@@ -724,6 +742,7 @@ SELECT
 from
 	(
 	SELECT
+		c.row_id,
 		c.order_id,
 		pn.pizza_name,
 		CASE
@@ -736,7 +755,7 @@ from
 				WHERE order_id =c.order_id)
 		END AS all_exclusions,
 		CASE
-			WHEN c.exclusions IS  NULL AND c.extras IS NULL THEN NULL
+			WHEN c.exclusions IS NULL AND c.extras IS NULL THEN NULL
 			ELSE
 				(SELECT
 					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
@@ -745,20 +764,110 @@ from
 				WHERE order_id =c.order_id)
 		END AS all_extras
 	FROM pizza_names AS pn
-	JOIN new_customer_orders AS c
+	JOIN id_customer_orders AS c
 	ON c.pizza_id = pn.pizza_id
 	LEFT JOIN get_exclusions AS get_exc
 	ON get_exc.order_id = c.order_id AND c.exclusions IS NOT NULL
 	LEFT JOIN get_extras AS get_ext
 	ON get_ext.order_id = c.order_id AND c.extras IS NOT NULL
-	GROUP BY c.order_id,
+	GROUP BY 
+		c.row_id,
+		c.order_id,
 		pn.pizza_name,
 		c.exclusions,
 		c.extras
-	ORDER BY c.order_id) AS tmp
+	ORDER BY c.row_id) AS tmp
+	
+-- Result:
+	
+pizza_type                                                       |
+-----------------------------------------------------------------+
+Meatlovers                                                       |
+Meatlovers                                                       |
+Meatlovers                                                       |
+Vegetarian                                                       |
+Meatlovers - Exclude: Cheese                                     |
+Meatlovers - Exclude: Cheese                                     |
+Vegetarian - Exclude: Cheese                                     |
+Meatlovers - Extra: Bacon                                        |
+Vegetarian                                                       |
+Vegetarian - Extra: Bacon                                        |
+Meatlovers                                                       |
+Meatlovers - Exclude: Cheese - Extra: Bacon, Chicken             |
+Meatlovers                                                       |
+Meatlovers - Exclude: BBQ Sauce, Mushrooms - Extra: Bacon, Cheese|
 
+-- 5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from 
+-- the customer_orders table and add a 2x in front of any relevant ingredients      
 
+DROP TABLE IF EXISTS get_toppings;
+CREATE TEMP TABLE get_toppings AS (
+	SELECT
+		row_id,
+		order_id,
+		trim(UNNEST(string_to_array(toppings, ',')))::numeric AS single_toppings
+	FROM id_customer_orders AS c
+	JOIN pizza_recipes AS pr
+	ON c.pizza_id = pr.pizza_id
+	GROUP BY row_id, order_id, toppings
+);
 
-       
-       
-      
+SELECT
+	row_id,
+	pizza_name,
+	string_agg(all_toppings, ',') AS toppings
+from
+	(SELECT
+		row_id,
+		pizza_name,
+		CASE
+			WHEN toppings = extras THEN string_agg(concat('2x', extras), ',')
+			WHEN toppings = exclusions THEN null
+			WHEN extras IS NOT NULL AND toppings <> extras THEN string_agg(extras, ',')
+			ELSE string_agg(toppings, ',')
+		END AS all_toppings
+	from
+		(SELECT
+			row_id,
+			order_id,
+			pizza_name,
+			UNNEST(string_to_array(all_toppings, ',')) AS toppings,
+			UNNEST(string_to_array(all_extras, ',')) AS extras,
+			UNNEST(string_to_array(all_exclusions, ',')) AS exclusions
+		from	
+			(SELECT
+				c.row_id,
+				c.order_id,
+				pn.pizza_name,
+				(SELECT
+					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_top.single_toppings), ', ')
+					FROM
+						get_toppings AS get_top
+					WHERE row_id = c.row_id)
+				AS all_toppings,
+				(SELECT
+					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_extras.single_extras), ', ')
+					FROM
+						get_extras AS get_extras
+					WHERE row_id = c.row_id)
+				AS all_extras,
+				(SELECT
+					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exclusions.single_exclusions), ', ')
+					FROM
+						get_exclusions AS get_exclusions
+					WHERE row_id = c.row_id)
+				AS all_exclusions
+			FROM pizza_names AS pn
+			JOIN id_customer_orders AS c
+			ON c.pizza_id = pn.pizza_id
+			GROUP BY 
+				c.row_id,
+				c.order_id,
+				pn.pizza_name,
+				c.exclusions,
+				c.extras
+			ORDER BY c.row_id ) AS tmp1) AS tmp2
+	GROUP BY row_id, pizza_name, toppings, extras, exclusions) AS tmp3
+GROUP BY row_id,
+	pizza_name
+	

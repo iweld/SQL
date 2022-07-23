@@ -812,32 +812,64 @@ CREATE TEMP TABLE get_toppings AS (
 	GROUP BY row_id, order_id, toppings
 );
 
+WITH ingredients AS (
+	SELECT
+		row_id,
+		pizza_name,
+		concat(all_toppings, ',', all_extras) AS all_ingredients
+	from
+		(SELECT
+			c.row_id,
+			c.order_id,
+			pn.pizza_name,
+			(SELECT
+				trim(string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_top.single_toppings), ','))
+			FROM
+				get_toppings AS get_top
+			WHERE get_top.row_id = c.row_id
+			AND get_top.single_toppings NOT IN (
+				(SELECT 
+					single_exclusions
+				FROM get_exclusions
+				WHERE c.row_id = row_id)
+			))AS all_toppings,
+			(SELECT
+				trim(string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_extra.single_extras), ','))
+			FROM
+				get_extras AS get_extra
+			WHERE get_extra.row_id = c.row_id
+			) AS all_extras
+		FROM pizza_names AS pn
+		JOIN id_customer_orders AS c
+		ON c.pizza_id = pn.pizza_id
+		ORDER BY c.row_id) AS tmp)
+
 SELECT
-	c.row_id,
-	c.order_id,
-	pn.pizza_name,
+	row_id,
+	pizza_name,
+	string_agg(new_ing, ',') AS toppings
+from
 	(SELECT
-		trim(string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_top.single_toppings), ', '))
-	FROM
-		get_toppings AS get_top
-	WHERE row_id = c.row_id
-	AND get_top.single_toppings NOT IN (
+		row_id,
+		pizza_name,
+		CASE
+			WHEN count(each_ing) > 1 THEN concat('2x', each_ing)
+			when each_ing != '' THEN each_ing
+		END AS new_ing
+	from
 		(SELECT 
-			single_exclusions
-		FROM get_exclusions
-		WHERE c.row_id = row_id)
-	)) AS all_toppings,
-	(SELECT
-		string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
-	FROM
-		get_extras AS get_ext
-	WHERE order_id =c.row_id) AS all_extras
-FROM pizza_names AS pn
-JOIN id_customer_orders AS c
-ON c.pizza_id = pn.pizza_id
-ORDER BY c.row_id 
-
-
+			row_id,
+			pizza_name,
+			UNNEST(string_to_array(all_ingredients, ',')) AS each_ing
+		FROM ingredients) AS tmp
+	GROUP BY 
+		row_id,
+		pizza_name,
+		each_ing) AS tmp2
+WHERE new_ing IS NOT null
+GROUP BY 
+	row_id,
+	pizza_name
 
 
 

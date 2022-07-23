@@ -813,61 +813,31 @@ CREATE TEMP TABLE get_toppings AS (
 );
 
 SELECT
-	row_id,
-	pizza_name,
-	string_agg(all_toppings, ',') AS toppings
-from
+	c.row_id,
+	c.order_id,
+	pn.pizza_name,
 	(SELECT
-		row_id,
-		pizza_name,
-		CASE
-			WHEN toppings = extras THEN string_agg(concat('2x', extras), ',')
-			WHEN toppings = exclusions THEN null
-			WHEN extras IS NOT NULL AND toppings <> extras THEN string_agg(extras, ',')
-			ELSE string_agg(toppings, ',')
-		END AS all_toppings
-	from
-		(SELECT
-			row_id,
-			order_id,
-			pizza_name,
-			UNNEST(string_to_array(all_toppings, ',')) AS toppings,
-			UNNEST(string_to_array(all_extras, ',')) AS extras,
-			UNNEST(string_to_array(all_exclusions, ',')) AS exclusions
-		from	
-			(SELECT
-				c.row_id,
-				c.order_id,
-				pn.pizza_name,
-				(SELECT
-					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_top.single_toppings), ', ')
-					FROM
-						get_toppings AS get_top
-					WHERE row_id = c.row_id)
-				AS all_toppings,
-				(SELECT
-					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_extras.single_extras), ', ')
-					FROM
-						get_extras AS get_extras
-					WHERE row_id = c.row_id)
-				AS all_extras,
-				(SELECT
-					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exclusions.single_exclusions), ', ')
-					FROM
-						get_exclusions AS get_exclusions
-					WHERE row_id = c.row_id)
-				AS all_exclusions
-			FROM pizza_names AS pn
-			JOIN id_customer_orders AS c
-			ON c.pizza_id = pn.pizza_id
-			GROUP BY 
-				c.row_id,
-				c.order_id,
-				pn.pizza_name,
-				c.exclusions,
-				c.extras
-			ORDER BY c.row_id ) AS tmp1) AS tmp2
-	GROUP BY row_id, pizza_name, toppings, extras, exclusions) AS tmp3
-GROUP BY row_id,
-	pizza_name
-	
+		trim(string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_top.single_toppings), ', '))
+	FROM
+		get_toppings AS get_top
+	WHERE row_id = c.row_id
+	AND get_top.single_toppings NOT IN (
+		(SELECT 
+			single_exclusions
+		FROM get_exclusions
+		WHERE c.row_id = row_id)
+	)) AS all_toppings,
+	(SELECT
+		string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
+	FROM
+		get_extras AS get_ext
+	WHERE order_id =c.row_id) AS all_extras
+FROM pizza_names AS pn
+JOIN id_customer_orders AS c
+ON c.pizza_id = pn.pizza_id
+ORDER BY c.row_id 
+
+
+
+
+

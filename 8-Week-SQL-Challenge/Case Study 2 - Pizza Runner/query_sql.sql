@@ -871,5 +871,23 @@ GROUP BY
 	row_id,
 	pizza_name
 
+-- Results:
+	
+row_id|pizza_name|toppings                                                        |
+------+----------+----------------------------------------------------------------+
+     1|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+     2|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+     3|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+     4|Vegetarian|Cheese,Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes           |
+     5|Meatlovers|Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami         |
+     6|Meatlovers|Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami         |
+     7|Vegetarian|Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes                  |
+     8|Meatlovers|2xBacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami|
+     9|Vegetarian|Cheese,Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes           |
+    10|Vegetarian|Bacon,Cheese,Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes     |
+    11|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+    12|Meatlovers|2xBacon,BBQ Sauce,Beef,2xChicken,Mushrooms,Pepperoni,Salami     |
+    13|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+    14|Meatlovers|2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami                  |
 
 

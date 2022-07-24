@@ -812,9 +812,11 @@ CREATE TEMP TABLE get_toppings AS (
 	GROUP BY row_id, order_id, toppings
 );
 
-WITH ingredients AS (
+DROP TABLE IF EXISTS ingredients; 
+CREATE TEMP TABLE ingredients AS (
 	SELECT
 		row_id,
+		order_id,
 		pizza_name,
 		concat(all_toppings, ',', all_extras) AS all_ingredients
 	from
@@ -842,7 +844,7 @@ WITH ingredients AS (
 		FROM pizza_names AS pn
 		JOIN id_customer_orders AS c
 		ON c.pizza_id = pn.pizza_id
-		ORDER BY c.row_id) AS tmp)
+		ORDER BY c.row_id) AS tmp);
 
 SELECT
 	row_id,
@@ -889,5 +891,136 @@ row_id|pizza_name|toppings                                                      
     12|Meatlovers|2xBacon,BBQ Sauce,Beef,2xChicken,Mushrooms,Pepperoni,Salami     |
     13|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
     14|Meatlovers|2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami                  |
+    
+
+-- 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+
+SELECT
+	each_ing,
+	count(each_ing) AS n_ingredients
+from
+	(SELECT 
+		row_id,
+		order_id,
+		pizza_name,
+		UNNEST(string_to_array(all_ingredients, ',')) AS each_ing
+	FROM ingredients) AS tmp
+JOIN new_runner_orders AS r
+ON r.order_id = tmp.order_id
+WHERE 
+	each_ing <> ''
+AND 
+	r.cancellation IS NULL
+GROUP BY each_ing
+ORDER BY n_ingredients desc
+    
+-- Results
+
+each_ing    |n_ingredients|
+------------+-------------+
+Bacon       |           12|
+Mushrooms   |           11|
+Cheese      |           10|
+Chicken     |            9|
+Salami      |            9|
+Pepperoni   |            9|
+Beef        |            9|
+BBQ Sauce   |            8|
+Tomato Sauce|            3|
+Tomatoes    |            3|
+Peppers     |            3|
+Onions      |            3|
+    
+/* 
+ * Pizza Runner
+ * Case Study #2 Questions
+ * Pricing & Ratings
+ *  
+*/ 
+    
+-- 1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for 
+-- changes - how much money has Pizza Runner made so far if there are no delivery fees?    
+
+SELECT
+	sum(total_meatlovers) + sum(total_veggie) AS total_income
+from
+	(SELECT 
+		c.order_id,
+		c.pizza_id,
+		sum(
+			CASE
+				WHEN pizza_id = 1 THEN 12
+				ELSE 0
+			END
+		) AS total_meatlovers,
+		sum(
+			CASE
+				WHEN pizza_id = 2 THEN 10
+				ELSE 0
+			END
+		) AS total_veggie
+	FROM new_customer_orders AS c
+	JOIN new_runner_orders AS r
+	ON r.order_id = c.order_id
+	WHERE 
+		r.cancellation IS NULL
+	GROUP BY 
+		c.order_id,
+		c.pizza_id,
+		c.extras) AS tmp
+    
+-- Result
+
+total_income|
+------------+
+         138|
+         
+-- 3. What if there was an additional $1 charge for any pizza extras?
+    
+WITH get_extras_cost AS (
+	SELECT
+		order_id,
+		count(each_extra) AS total_extras
+	from
+		(SELECT 
+			order_id,
+			UNNEST(string_to_array(extras, ',')) AS each_extra 
+		FROM new_customer_orders) AS tmp
+	GROUP BY order_id
+)
+
+SELECT
+	sum(total_meatlovers) + sum(total_veggie) + sum(total_extras) AS total_income
+from
+	(SELECT 
+		c.order_id,
+		c.pizza_id,
+		sum(
+			CASE
+				WHEN pizza_id = 1 THEN 12
+				ELSE 0
+			END
+		) AS total_meatlovers,
+		sum(
+			CASE
+				WHEN pizza_id = 2 THEN 10
+				ELSE 0
+			END
+		) AS total_veggie,
+		gec.total_extras
+	FROM new_customer_orders AS c
+	JOIN new_runner_orders AS r
+	ON r.order_id = c.order_id
+	LEFT JOIN get_extras_cost AS gec
+	ON gec.order_id = c.order_id
+	WHERE 
+		r.cancellation IS NULL
+	GROUP BY 
+		c.order_id,
+		c.pizza_id,
+		c.extras,
+		gec.total_extras) AS tmp   
+    
+    
 
 
